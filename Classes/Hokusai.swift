@@ -127,6 +127,29 @@ final public class HOKButton: UIButton {
     }
 }
 
+final public class HOKLabel: UILabel {
+    var title: String!
+    
+    // Font
+    let kDefaultFont      = "AvenirNext-Light"
+    let kFontSize:CGFloat = 16.0
+    
+    func setColor(colors: HOKColors) {
+        self.textColor = colors.fontColor
+        self.backgroundColor = UIColor.clearColor()
+    }
+    
+    func setFontName(fontName: String?) {
+        let name:String
+        if let fontName = fontName where !fontName.isEmpty {
+            name = fontName
+        } else {
+            name = kDefaultFont
+        }
+        self.font = UIFont(name: name, size:kFontSize)
+    }
+}
+
 final public class HOKMenuView: UIView {
     var colorScheme = HOKColorScheme.Hokusai
     
@@ -211,12 +234,15 @@ final public class Hokusai: UIViewController, UIGestureRecognizerDelegate {
     // Views
     private var menuView = HOKMenuView()
     private var buttons  = [HOKButton]()
+    private var labels   = [HOKLabel]()
     
     private var instance:Hokusai!       = nil
     private var kButtonWidth:CGFloat    = 250
     private let kButtonHeight:CGFloat   = 48.0
-    private let kButtonInterval:CGFloat = 16.0
+    private let kElementInterval:CGFloat = 16.0
     private var bgColor                 = UIColor(white: 1.0, alpha: 0.7)
+    private var kLabelWidth:CGFloat { return kButtonWidth }
+    private var kLabelHeight:CGFloat    = 30.0
     
     // Variables users can change
     public var colorScheme        = HOKColorScheme.Hokusai
@@ -253,22 +279,36 @@ final public class Hokusai: UIViewController, UIGestureRecognizerDelegate {
         
         kButtonWidth = view.frame.width * 0.8
         
-        let menuHeight = CGFloat(buttons.count + 2) * kButtonInterval + CGFloat(buttons.count) * kButtonHeight
+        // Locate labels
+        for i in 0 ..< labels.count {
+            let label = labels[i]
+            label.frame  = CGRect(x: 0.0, y: 0.0, width: kLabelWidth, height: kLabelHeight)
+            label.sizeToFit()
+            let yPrev = i == 0 ? 0 : labels[i - 1].center.y
+            label.center = CGPoint(x: view.center.x, y: label.frame.size.height * 0.5 + yPrev + kElementInterval)
+        }
+        
+        // Decide the menu size
+        let labelHeigths = labels.flatMap { CGRectGetHeight($0.frame) }.reduce(0, combine: +)
+        let menuHeight = CGFloat(buttons.count + labels.count + 1) * kElementInterval + CGFloat(buttons.count) * kButtonHeight + labelHeigths
         menuView.frame = CGRect(
             x: 0,
             y: view.frame.height - menuHeight,
             width: view.frame.width,
             height: menuHeight
         )
-        
         menuView.shapeLayer.frame = CGRect(origin: CGPointZero, size: menuView.frame.size)
         menuView.updatePath()
         
+        // Locate buttons
         for i in 0 ..< buttons.count {
             let btn = buttons[i]
             btn.frame  = CGRect(x: 0.0, y: 0.0, width: kButtonWidth, height: kButtonHeight)
-            btn.center = CGPoint(x: view.center.x, y: -kButtonHeight * 0.25 + (kButtonHeight + kButtonInterval) * CGFloat(i + 1))
+            let yOffset = labels.last != nil ? CGRectGetMaxY(labels.last!.frame) : 0
+            let yPrev = (kButtonHeight + kElementInterval) * CGFloat(i)
+            btn.center = CGPoint(x: view.center.x, y: kButtonHeight * 0.5 + yPrev + kElementInterval + yOffset)
         }
+
         self.view.layoutIfNeeded()
     }
     
@@ -326,6 +366,18 @@ final public class Hokusai: UIViewController, UIGestureRecognizerDelegate {
         return btn
     }
     
+    // Add a label with a text
+    public func addLabel(text: String) -> HOKLabel {
+        let label = HOKLabel()
+        label.layer.masksToBounds = true
+        label.textAlignment = .Center
+        label.text = text
+        label.numberOfLines = 0
+        menuView.addSubview(label)
+        labels.append(label)
+        return label
+    }
+    
     // Show the menu
     public func show() {
         if let rv = UIApplication.sharedApplication().keyWindow {
@@ -349,8 +401,20 @@ final public class Hokusai: UIViewController, UIGestureRecognizerDelegate {
         // Add a cancel button
         self.addCancelButton(cancelButtonTitle)
         
+        // Locate labels
+        for i in 0 ..< labels.count {
+            let label = labels[i]
+            label.frame  = CGRect(x: 0.0, y: 0.0, width: kLabelWidth, height: kLabelHeight)
+            label.sizeToFit()
+            let yPrev = i == 0 ? 0 : labels[i - 1].center.y
+            label.center = CGPoint(x: view.center.x, y: label.frame.size.height * 0.5 + yPrev + kElementInterval)
+            label.setFontName(fontName)
+            label.setColor(colors)
+        }
+        
         // Decide the menu size
-        let menuHeight = CGFloat(buttons.count + 2) * kButtonInterval + CGFloat(buttons.count) * kButtonHeight
+        let labelHeigths = labels.flatMap { CGRectGetHeight($0.frame) }.reduce(0, combine: +)
+        let menuHeight = CGFloat(buttons.count + labels.count + 1) * kElementInterval + CGFloat(buttons.count) * kButtonHeight + labelHeigths
         menuView.frame = CGRect(
             x: 0,
             y: view.frame.height - menuHeight,
@@ -362,7 +426,9 @@ final public class Hokusai: UIViewController, UIGestureRecognizerDelegate {
         for i in 0 ..< buttons.count {
             let btn = buttons[i]
             btn.frame  = CGRect(x: 0.0, y: 0.0, width: kButtonWidth, height: kButtonHeight)
-            btn.center = CGPoint(x: view.center.x, y: -kButtonHeight * 0.25 + (kButtonHeight + kButtonInterval) * CGFloat(i + 1))
+            let yOffset = labels.last != nil ? CGRectGetMaxY(labels.last!.frame) : 0
+            let yPrev = (kButtonHeight + kElementInterval) * CGFloat(i)
+            btn.center = CGPoint(x: view.center.x, y: kButtonHeight * 0.5 + yPrev + kElementInterval + yOffset)
             btn.layer.cornerRadius = kButtonHeight * 0.5
             btn.setFontName(fontName)
             btn.setColor(colors)
@@ -411,21 +477,30 @@ final public class Hokusai: UIViewController, UIGestureRecognizerDelegate {
     
     // Dismiss the menuview
     public func dismiss() {
+        let cancelBtn = buttons.filter { $0.isCancelButton }.first
+        guard let btn = cancelBtn else {
+            return self.dismissAnimation()
+        }
+        buttonTapped(btn)
+    }
+    
+    private func dismissAnimation() {
         // Background and Menuview
         UIView.animateWithDuration(HOKConsts().animationDuration,
-            delay: 0.0,
-            usingSpringWithDamping: 100.0,
-            initialSpringVelocity: 0.6,
-            options: [.BeginFromCurrentState, .AllowUserInteraction, .OverrideInheritedOptions, .CurveEaseOut],
-            animations: {
-                self.view.backgroundColor = UIColor.clearColor()
-                self.menuView.frame       = CGRect(origin: CGPoint(x: 0.0, y: self.view.frame.height), size: self.menuView.frame.size)
+                                   delay: 0.0,
+                                   usingSpringWithDamping: 100.0,
+                                   initialSpringVelocity: 0.6,
+                                   options: [.BeginFromCurrentState, .AllowUserInteraction, .OverrideInheritedOptions, .CurveEaseOut],
+                                   animations: {
+                                    self.view.backgroundColor = UIColor.clearColor()
+                                    self.menuView.frame       = CGRect(origin: CGPoint(x: 0.0, y: self.view.frame.height), size: self.menuView.frame.size)
             },
-            completion: {(finished) in
-                self.view.removeFromSuperview()
+                                   completion: {(finished) in
+                                    self.view.removeFromSuperview()
         })
         menuView.positionAnimationWillStart()
     }
+    
     
     // When a button is tapped, this method is called.
     func buttonTapped(btn:HOKButton) {
@@ -439,7 +514,7 @@ final public class Hokusai: UIViewController, UIGestureRecognizerDelegate {
                 print("Unknow action type for button")
             }
         }
-        dismiss()
+        dismissAnimation()
     }
     
 }
